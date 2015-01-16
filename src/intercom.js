@@ -2,10 +2,10 @@
 
   window.WisemblyIntercom = {
 
-    version: '0.1.2',
+    version: '0.1.3',
 
     options: {
-      identifier: null,
+      identifier: '',
       script: 'https://widget.intercom.io/widget/',
       scriptTimeout: 5000,
       trackTimeout: 5000,
@@ -47,7 +47,7 @@
 
     _loadScript: function () {
       var self = this;
-      return $.ajax({ url: this.options.script + (this.options.identifier || ''), dataType: 'script', timeout: this.options.scriptTimeout })
+      return $.ajax({ url: this._get('script') + this._get('identifier'), dataType: 'script', timeout: this._get('scriptTimeout') })
         .done(function () { self._notify('onScript'); })
         .fail(function () { self._notify('onScriptError'); });
     },
@@ -55,6 +55,9 @@
     boot: function (identifier) {
       if (!this.isEnabled())
         return false;
+      this.track('boot', $.extend({
+        app_id: this._get('identifier')
+      }, this._get('bootData')), true);
       this._notify('onBoot');
       return true;
     },
@@ -131,7 +134,7 @@
       setTimeout(function () {
         if (_event.dfd.state() === 'pending')
           _event.dfd.reject();
-      }, this.options.trackTimeout);
+      }, this._get('trackTimeout'));
 
       _event.dfd
         .done(function () { self._notify('onTrack', _event); })
@@ -141,13 +144,13 @@
           setTimeout(function () {
             self.flush()
               .done(dfd.resolve);
-          }, self.options.trackDelay);
+          }, self._get('trackDelay'));
         });
       return dfd.promise();
     },
 
     intercomShutdown: function (_event) {
-      if (!this.isEnabled())
+      if (!this.isReady())
         return _event.dfd.reject().promise();
 
       // reset
