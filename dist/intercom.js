@@ -2,7 +2,7 @@
 
   window.WisemblyIntercom = {
 
-    version: '0.1.3',
+    version: '0.1.4',
 
     options: {
       identifier: '',
@@ -53,8 +53,10 @@
     },
 
     boot: function (identifier) {
-      if (!this.isEnabled())
+      if (!this.isLoaded() || !this.isEnabled())
         return false;
+      this.initialized = true;
+
       this.track('boot', $.extend({
         app_id: this._get('identifier')
       }, this._get('bootData')), true);
@@ -62,13 +64,15 @@
       return true;
     },
 
+    isLoaded: function () {
+      return typeof window.Intercom === 'function';
+    },
+
     isReady: function () {
-      return typeof window.Intercom === 'function' && this.options;
+      return this.initialized;
     },
 
     isEnabled: function () {
-      if (!this.isReady())
-        return false;
       return this._get('isEnabled');
     },
 
@@ -76,7 +80,7 @@
       if (!type)
         return false;
       this.store(type, data, metadata, priority);
-      if (this.isReady())
+      if (this.isReady() && this.isEnabled())
         this.flush();
       return true;
     },
@@ -86,12 +90,12 @@
       this._storedId = this._storedId || 0;
       // Build and store Deferred
       var _event = {
-          id: ++this._storedId,
-          dfd: $.Deferred(),
-          type: type,
-          data: data,
-          metadata: metadata
-        };
+        id: ++this._storedId,
+        dfd: $.Deferred(),
+        type: type,
+        data: data,
+        metadata: metadata
+      };
 
       if (priority !== true)
         this._storedEvents.push(_event);
@@ -150,7 +154,7 @@
     },
 
     intercomShutdown: function (_event) {
-      if (!this.isReady())
+      if (!this.isReady() || !this.isEnabled())
         return _event.dfd.reject().promise();
 
       // reset
@@ -159,6 +163,7 @@
       this._pingStack = null;
       this._hasRegisteredIntercomEvents = false;
       this._fn_user_events_success = null;
+      this.initialized = false;
 
       // call Intercom API
       window.Intercom('shutdown');
@@ -169,7 +174,7 @@
     },
 
     intercomTrackEvent: function (_event) {
-      if (!this.isEnabled())
+      if (!this.isReady() || !this.isEnabled())
         return _event.dfd.reject().promise();
 
       var self = this;
@@ -205,7 +210,7 @@
     },
 
     intercomUpdate: function (_event) {
-      if (!this.isEnabled())
+      if (!this.isReady() || !this.isEnabled())
         return _event.dfd.reject().promise();
 
       var self = this;
